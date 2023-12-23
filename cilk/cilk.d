@@ -1,4 +1,3 @@
-// TODO: Switch support
 module godwit.cilk;
 
 import std.stdio;
@@ -22,6 +21,7 @@ int main()
     ldc.i4 2
     div
     pop
+    switch 2 2, 4
     ret";
 
     writeln("[cilk-asm]");
@@ -33,7 +33,6 @@ int main()
     return 0;
 }
 
-// TODO: Prefix support inline (readonly.ldarg.0)
 ubyte[] assemble(string str)
 {
     ubyte[] assembly;
@@ -185,6 +184,19 @@ ubyte[] assemble(string str)
                 auto op = operand.to!double;
                 assembly ~= (cast(ubyte*)&op)[0..double.sizeof];
                 break;
+            case "switch":
+                import std.array;
+                assembly ~= instructions[mnemonic];
+                string[] array = operand.replace(",", "").split(" ");
+                auto op = array[0].to!uint;
+                uint index = 1;
+                assembly ~= (cast(ubyte*)&op)[0..uint.sizeof];
+                while (index < op + 1)
+                {
+                    int item =  array[index++].to!int;
+                    assembly ~= (cast(ubyte*)&item)[0..int.sizeof];
+                }
+                break;
             default:
                 if (mnemonic !in instructions || operand != null)
                     throw new Exception("Invalid mnemonic or operand: "~line);
@@ -310,6 +322,9 @@ string disassemble(ubyte[] bytes)
                     break;
                 case "ldc.r8":
                     disassembly ~= format("%08d: %s%s %f\n", stream.position - 1, prefix, mnemonic, stream.read!double);
+                    break;
+                case "switch":
+                    disassembly ~= format("%08d: %s%s %s\n", stream.position - 1, prefix, mnemonic, stream.read!int(stream.read!uint).to!string);
                     break;
                 default:
                     disassembly ~= format("%08d: %s%s\n", stream.position - 1, prefix, mnemonic);
